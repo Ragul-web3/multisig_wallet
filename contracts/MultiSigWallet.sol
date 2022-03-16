@@ -3,19 +3,23 @@
 pragma solidity ^0.8.9;
 
 import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "./IWallet.sol";
 
-contract MultiSigWallet {
+contract MultiSigWallet is IWallet {
     using SafeMath for uint256;
 
     /*
      * Events
      */
-    event Deposit(address indexed sender, uint256 value);
-    event Submission(uint256 indexed transactionId);
-    event Confirmation(address indexed sender, uint256 indexed transactionId);
-    event Execution(uint256 indexed transactionId);
-    event ExecutionFailure(uint256 indexed transactionId);
-    event Revocation(address indexed sender, uint256 indexed transactionId);
+    // event Deposit(address indexed sender, uint256 value);
+    // event Submission(uint256 indexed transactionId);
+    // event Confirmation(address indexed sender, uint256 indexed transactionId);
+    // event Execution(uint256 indexed transactionId);
+    // event ExecutionFailure(uint256 indexed transactionId);
+    // event Revocation(address indexed sender, uint256 indexed transactionId);
+    event OwnerAddition(address indexed owner);
+    event OwnerRemoval(address indexed owner);
+    event QuorumUpdate(uint256 quorum);
 
     /*
      * Storage
@@ -31,7 +35,6 @@ contract MultiSigWallet {
     address[] public owners;
     mapping(address => bool) public isOwner;
     uint256 quorum;
-
 
     // track transaction ID and keep a mapping of the same
     uint256 public transactionCount;
@@ -88,6 +91,16 @@ contract MultiSigWallet {
         _;
     }
 
+    modifier ownerExistsMod(address owner) {
+        require(isOwner[owner] == true, "This owner doesn't exist");
+        _;
+    }
+
+    modifier notOwnerExistsMod(address owner) {
+        require(isOwner[owner] == false, "This owner already exists");
+        _;
+    }
+
     /**
      * @dev Contract constructor sets initial owners
      * @param _owners List of initial owners.
@@ -101,7 +114,7 @@ contract MultiSigWallet {
             isOwner[_owners[i]] = true;
         }
         owners = _owners;
-        uint num = SafeMath.mul(owners.length, 60);
+        uint256 num = SafeMath.mul(owners.length, 60);
         quorum = SafeMath.div(num, 100);
     }
 
@@ -188,6 +201,83 @@ contract MultiSigWallet {
     }
 
     /**
+     * @dev Allows admin to add new owner to the wallet
+     * @param owner Address of the new owner
+     */
+    function addOwner(address owner)
+        public
+        isOwnerMod(msg.sender)
+        notNull(owner)
+        notOwnerExistsMod(owner)
+    {
+        // add owner
+        isOwner[owner] = true;
+        owners.push(owner);
+
+        // emit event
+        emit OwnerAddition(owner);
+
+        // update quorum
+        updateQuorum(owners);
+    }
+
+    /**
+     * @dev Allows admin to remove owner from the wallet
+     * @param owner Address of the new owner
+     */
+    function removeOwner(address owner)
+        public
+        isOwnerMod(msg.sender)
+        notNull(owner)
+        ownerExistsMod(owner)
+    {
+        // remove owner
+        isOwner[owner] = false;
+
+        // iterate over owners and remove the current owner
+        for (uint256 i = 0; i < owners.length - 1; i++)
+            if (owners[i] == owner) {
+                owners[i] = owners[owners.length - 1];
+                break;
+            }
+        owners.pop();
+
+        // update quorum
+        updateQuorum(owners);
+    }
+
+    /**
+     * @dev Allows admin to transfer owner from one wallet to  another
+     * @param _from Address of the old owner
+     * @param _to Address of the new owner
+     */
+    function transferOwner(address _from, address _to)
+        public
+        isOwnerMod(msg.sender)
+        notNull(_from)
+        notNull(_to)
+        ownerExistsMod(_from)
+        notOwnerExistsMod(_to)
+    {
+        // iterate over owners
+        for (uint256 i = 0; i < owners.length; i++)
+            // if the curernt owner
+            if (owners[i] == _from) {
+                // replace with new owner address
+                owners[i] = _to;
+                break;
+            }
+
+        // reset owner addresses
+        isOwner[_from] = false;
+        isOwner[_to] = true;
+
+        // emit events
+        emit OwnerRemoval(_from);
+        emit OwnerAddition(_to);
+    }
+
+    /**
      * Internal Functions
      */
 
@@ -243,13 +333,28 @@ contract MultiSigWallet {
     }
 
     /**
+     * @dev Updates the new quorum value
+     * @param _owners List of address of the owners
+     */
+    function updateQuorum(address[] memory _owners) internal {
+        uint256 num = SafeMath.mul(_owners.length, 60);
+        quorum = SafeMath.div(num, 100);
+
+        emit QuorumUpdate(quorum);
+    }
+
+    /**
      * Blockchain get functions
      */
     function getOwners() external view returns (address[] memory) {
         return owners;
     }
 
-    function getValidTransactions() external view returns (Transaction[] memory) {
+    function getValidTransactions()
+        external
+        view
+        returns (Transaction[] memory)
+    {
         return _validTransactions;
     }
 
