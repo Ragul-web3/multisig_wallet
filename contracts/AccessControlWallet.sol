@@ -144,7 +144,7 @@ contract AccessControlWallet {
      * @dev Allows admin to transfer admin rights to another address
      * @param newAdmin Address of the new admin
      */
-    function renounceAdmin(address newAdmin) private onlyAdmin {
+    function renounceAdmin(address newAdmin) public onlyAdmin {
         admin = newAdmin;
 
         emit AdminTransfer(newAdmin);
@@ -171,5 +171,9 @@ contract AccessControlWallet {
 
     function getOwners() external view returns (address[] memory) {
         return owners;
+    }
+
+    function getAdmin() external view returns (address) {
+        return admin;
     }
 }

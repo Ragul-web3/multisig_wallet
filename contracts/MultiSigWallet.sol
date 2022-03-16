@@ -11,12 +11,6 @@ contract MultiSigWallet is IWallet {
     /*
      * Events
      */
-    // event Deposit(address indexed sender, uint256 value);
-    // event Submission(uint256 indexed transactionId);
-    // event Confirmation(address indexed sender, uint256 indexed transactionId);
-    // event Execution(uint256 indexed transactionId);
-    // event ExecutionFailure(uint256 indexed transactionId);
-    // event Revocation(address indexed sender, uint256 indexed transactionId);
     event OwnerAddition(address indexed owner);
     event OwnerRemoval(address indexed owner);
     event QuorumUpdate(uint256 quorum);
@@ -203,6 +197,7 @@ contract MultiSigWallet is IWallet {
     /**
      * @dev Allows admin to add new owner to the wallet
      * @param owner Address of the new owner
+     * TODO: Add quorum check before initiating this function
      */
     function addOwner(address owner)
         public
@@ -222,8 +217,9 @@ contract MultiSigWallet is IWallet {
     }
 
     /**
-     * @dev Allows admin to remove owner from the wallet
+     * @dev Allows owners to remove owner from the wallet
      * @param owner Address of the new owner
+     * TODO: Add quorum check before initiating this function
      */
     function removeOwner(address owner)
         public
@@ -250,6 +246,7 @@ contract MultiSigWallet is IWallet {
      * @dev Allows admin to transfer owner from one wallet to  another
      * @param _from Address of the old owner
      * @param _to Address of the new owner
+     * TODO: Add quorum check before initiating this function
      */
     function transferOwner(address _from, address _to)
         public
