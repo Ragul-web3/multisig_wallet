@@ -84,6 +84,11 @@ contract MultiSigWallet {
         _;
     }
 
+    modifier notNull(address _address) {
+        require(_address != address(0), "Specified destination doesn't exist");
+        _;
+    }
+
     /**
      * @dev Contract constructor sets initial owners
      * @param _owners List of initial owners.
@@ -132,7 +137,7 @@ contract MultiSigWallet {
         // confirm transaction is not being sent to a null address
         require(
             transactions[transactionId].destination != address(0),
-            "Specified transaction doesn't exist"
+            "Specified destination doesn't exist"
         );
 
         // update confirmation
@@ -149,13 +154,10 @@ contract MultiSigWallet {
      */
     function executeTransaction(uint256 transactionId)
         public
+        isOwnerMod(msg.sender)
         isExecutedMod(transactionId)
+        isConfirmedMod(transactionId, msg.sender)
     {
-        require(
-            transactions[transactionId].executed == false,
-            "This transaction has already been executed"
-        );
-
         if (isConfirmed(transactionId)) {
             // extrapolate struct to a variable
             Transaction storage txn = transactions[transactionId];
@@ -203,7 +205,7 @@ contract MultiSigWallet {
         address destination,
         uint256 value,
         bytes memory data
-    ) internal returns (uint256 transactionId) {
+    ) internal notNull(destination) returns (uint256 transactionId) {
         // assign ID to count
         transactionId = transactionCount;
 
