@@ -30,13 +30,7 @@ contract MultiSigWallet {
     // track addresses of owners
     address[] public owners;
     mapping(address => bool) public isOwner;
-
-    // define the requirement for this wallet
-    //  uint256 public percentApproval = SafeMath.div(60, 100);
-    // uint256 public quorum = percentApproval * owners.length;
-
-    // ------------------------------>
-    uint256 quorum = 2;
+    uint256 quorum;
 
 
     // track transaction ID and keep a mapping of the same
@@ -107,6 +101,8 @@ contract MultiSigWallet {
             isOwner[_owners[i]] = true;
         }
         owners = _owners;
+        uint num = SafeMath.mul(owners.length, 60);
+        quorum = SafeMath.div(num, 100);
     }
 
     /*
