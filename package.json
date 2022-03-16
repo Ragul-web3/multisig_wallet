@@ -1,5 +1,12 @@
 {
   "dependencies": {
-    "@openzeppelin/contracts": "^4.5.0"
+    "@openzeppelin/contracts": "^4.5.0",
+    "chai": "^4.3.6",
+    "hardhat": "^2.9.1",
+    "web3": "^1.7.1"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-environment": "^0.1.9",
+    "@openzeppelin/test-helpers": "^0.5.15"
   }
 }

@@ -3,6 +3,9 @@
 Install global dependencies:
 
 - npm install -g truffle
+
+Install local dependencies:
+
 - npm install
 
 To run the tests:

@@ -32,12 +32,17 @@ contract MultiSigWallet {
     mapping(address => bool) public isOwner;
 
     // define the requirement for this wallet
-    uint256 public percentApproval = SafeMath.div(60, 100);
-    uint256 public required = percentApproval * owners.length;
+    //  uint256 public percentApproval = SafeMath.div(60, 100);
+    // uint256 public quorum = percentApproval * owners.length;
+
+    // ------------------------------>
+    uint256 quorum = 2;
+
 
     // track transaction ID and keep a mapping of the same
     uint256 public transactionCount;
     mapping(uint256 => Transaction) public transactions;
+    Transaction[] public _validTransactions;
 
     // track transactions ID to which owner addresses have confirmed
     mapping(uint256 => mapping(address => bool)) public confirmations;
@@ -133,13 +138,8 @@ contract MultiSigWallet {
         public
         isOwnerMod(msg.sender)
         isConfirmedMod(transactionId, msg.sender)
+        notNull(transactions[transactionId].destination)
     {
-        // confirm transaction is not being sent to a null address
-        require(
-            transactions[transactionId].destination != address(0),
-            "Specified destination doesn't exist"
-        );
-
         // update confirmation
         confirmations[transactionId][msg.sender] = true;
         emit Confirmation(msg.sender, transactionId);
@@ -156,7 +156,6 @@ contract MultiSigWallet {
         public
         isOwnerMod(msg.sender)
         isExecutedMod(transactionId)
-        isConfirmedMod(transactionId, msg.sender)
     {
         if (isConfirmed(transactionId)) {
             // extrapolate struct to a variable
@@ -164,10 +163,11 @@ contract MultiSigWallet {
             // update variable executed state
             txn.executed = true;
 
-            // transfer the value to the destination address
+            // transfer the value to the destination address, and get boolean of success/fail
             (bool success, ) = txn.destination.call{value: txn.value}(txn.data);
 
             if (success) {
+                _validTransactions.push(txn);
                 emit Execution(transactionId);
             } else {
                 emit ExecutionFailure(transactionId);
@@ -185,6 +185,7 @@ contract MultiSigWallet {
         isOwnerMod(msg.sender)
         isConfirmedMod(transactionId, msg.sender)
         isExecutedMod(transactionId)
+        notNull(transactions[transactionId].destination)
     {
         confirmations[transactionId][msg.sender] = false;
         emit Revocation(msg.sender, transactionId);
@@ -240,8 +241,23 @@ contract MultiSigWallet {
         for (uint256 i = 0; i < owners.length; i++) {
             // if owner has confirmed the transaction
             if (confirmations[transactionId][owners[i]]) count += 1;
-            // if count reached the required specification then return true, as transaction is confirmed
-            if (count == required) return true;
+            // if count reached the quorum specification then return true
+            if (count >= quorum) return true;
         }
+    }
+
+    /**
+     * Blockchain get functions
+     */
+    function getOwners() external view returns (address[] memory) {
+        return owners;
+    }
+
+    function getValidTransactions() external view returns (Transaction[] memory) {
+        return _validTransactions;
+    }
+
+    function getQuorum() external view returns (uint256) {
+        return quorum;
     }
 }
