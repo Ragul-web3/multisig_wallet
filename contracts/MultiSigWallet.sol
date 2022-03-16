@@ -15,6 +15,7 @@ contract MultiSigWallet {
     event Confirmation(address indexed sender, uint256 indexed transactionId);
     event Execution(uint256 indexed transactionId);
     event ExecutionFailure(uint256 indexed transactionId);
+    event Revocation(address indexed sender, uint256 indexed transactionId);
 
     /*
      * Storage
@@ -59,8 +60,27 @@ contract MultiSigWallet {
     /*
      * Modifiers
      */
-    modifier isOwnerMod() {
-        require(isOwner[msg.sender], "This function requires owner access");
+    modifier isOwnerMod(address owner) {
+        require(
+            isOwner[owner] == true,
+            "You are not authorized for this action."
+        );
+        _;
+    }
+
+    modifier isConfirmedMod(uint256 transactionId, address owner) {
+        require(
+            confirmations[transactionId][owner] == false,
+            "You have already confirmed this transaction."
+        );
+        _;
+    }
+
+    modifier isExecutedMod(uint256 transactionId) {
+        require(
+            transactions[transactionId].executed == false,
+            "This transaction has already been executed."
+        );
         _;
     }
 
@@ -95,7 +115,7 @@ contract MultiSigWallet {
         address destination,
         uint256 value,
         bytes memory data
-    ) public isOwnerMod returns (uint256 transactionId) {
+    ) public isOwnerMod(msg.sender) returns (uint256 transactionId) {
         transactionId = addTransaction(destination, value, data);
         confirmTransaction(transactionId);
     }
@@ -104,15 +124,15 @@ contract MultiSigWallet {
      * @dev Allows an owner to confirm a transaction.
      * @param transactionId Transaction ID.
      */
-    function confirmTransaction(uint256 transactionId) public isOwnerMod {
+    function confirmTransaction(uint256 transactionId)
+        public
+        isOwnerMod(msg.sender)
+        isConfirmedMod(transactionId, msg.sender)
+    {
         // confirm transaction is not being sent to a null address
         require(
             transactions[transactionId].destination != address(0),
             "Specified transaction doesn't exist"
-        );
-        require(
-            confirmations[transactionId][msg.sender] == false,
-            "You have already confirmed this transaction"
         );
 
         // update confirmation
@@ -127,7 +147,10 @@ contract MultiSigWallet {
      * @dev Allows anyone to execute a confirmed transaction.
      * @param transactionId Transaction ID.
      */
-    function executeTransaction(uint256 transactionId) public {
+    function executeTransaction(uint256 transactionId)
+        public
+        isExecutedMod(transactionId)
+    {
         require(
             transactions[transactionId].executed == false,
             "This transaction has already been executed"
@@ -149,6 +172,20 @@ contract MultiSigWallet {
                 txn.executed = false;
             }
         }
+    }
+
+    /**
+     * @dev Allows an owner to revoke a confirmation for a transaction.
+     * @param transactionId Transaction ID.
+     */
+    function revokeTransaction(uint256 transactionId)
+        external
+        isOwnerMod(msg.sender)
+        isConfirmedMod(transactionId, msg.sender)
+        isExecutedMod(transactionId)
+    {
+        confirmations[transactionId][msg.sender] = false;
+        emit Revocation(msg.sender, transactionId);
     }
 
     /**
