@@ -2,19 +2,7 @@
 
 pragma solidity ^0.8.9;
 
-import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
-
 interface IWallet {
-    /*
-     * Events
-     */
-    event Deposit(address indexed sender, uint256 value);
-    event Submission(uint256 indexed transactionId);
-    event Confirmation(address indexed sender, uint256 indexed transactionId);
-    event Execution(uint256 indexed transactionId);
-    event ExecutionFailure(uint256 indexed transactionId);
-    event Revocation(address indexed sender, uint256 indexed transactionId);
-
     /**
      * @dev Allows admin to add new owner to the wallet
      * @param owner Address of the new owner
@@ -33,4 +21,22 @@ interface IWallet {
      * @param _to Address of the new owner
      */
     function transferOwner(address _from, address _to) external;
+
+    /**
+     * @dev Allows an owner to confirm a transaction.
+     * @param transactionId Transaction ID.
+     */
+    function confirmTransaction(uint256 transactionId) external;
+
+    /**
+     * @dev Allows anyone to execute a confirmed transaction.
+     * @param transactionId Transaction ID.
+     */
+    function executeTransaction(uint256 transactionId) external;
+
+    /**
+     * @dev Allows an owner to revoke a confirmation for a transaction.
+     * @param transactionId Transaction ID.
+     */
+    function revokeTransaction(uint256 transactionId) external;
 }

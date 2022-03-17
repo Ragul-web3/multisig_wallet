@@ -4,17 +4,10 @@ pragma solidity ^0.8.9;
 
 import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./IWallet.sol";
+import "./AccessControl.sol";
 
-contract MultiSigWallet is IWallet {
+contract MultiSigWallet is AccessControl {
     using SafeMath for uint256;
-
-    /*
-     * Events
-     */
-    event OwnerAddition(address indexed owner);
-    event OwnerRemoval(address indexed owner);
-    event QuorumUpdate(uint256 quorum);
-
     /*
      * Storage
      */
@@ -24,11 +17,6 @@ contract MultiSigWallet is IWallet {
         uint256 value;
         bytes data;
     }
-
-    // track addresses of owners
-    address[] public owners;
-    mapping(address => bool) public isOwner;
-    uint256 quorum;
 
     // track transaction ID and keep a mapping of the same
     uint256 public transactionCount;
@@ -80,37 +68,11 @@ contract MultiSigWallet is IWallet {
         _;
     }
 
-    modifier notNull(address _address) {
-        require(_address != address(0), "Specified destination doesn't exist");
-        _;
-    }
-
-    modifier ownerExistsMod(address owner) {
-        require(isOwner[owner] == true, "This owner doesn't exist");
-        _;
-    }
-
-    modifier notOwnerExistsMod(address owner) {
-        require(isOwner[owner] == false, "This owner already exists");
-        _;
-    }
-
     /**
      * @dev Contract constructor sets initial owners
      * @param _owners List of initial owners.
      */
-    constructor(address[] memory _owners) {
-        require(
-            _owners.length >= 3,
-            "There need to be atleast 3 initial signatories for this wallet"
-        );
-        for (uint256 i = 0; i < _owners.length; i++) {
-            isOwner[_owners[i]] = true;
-        }
-        owners = _owners;
-        uint256 num = SafeMath.mul(owners.length, 60);
-        quorum = SafeMath.div(num, 100);
-    }
+    constructor(address[] memory _owners) AccessControl(_owners) {}
 
     /*
      * Public Functions
@@ -123,13 +85,29 @@ contract MultiSigWallet is IWallet {
      * @param data Transaction data payload.
      * @return transactionId Transaction ID.
      */
-
     function submitTransaction(
         address destination,
         uint256 value,
         bytes memory data
     ) public isOwnerMod(msg.sender) returns (uint256 transactionId) {
-        transactionId = addTransaction(destination, value, data);
+        // assign ID to count
+        transactionId = transactionCount;
+
+        // update transactions mapping with the transaction struct
+        transactions[transactionId] = Transaction({
+            destination: destination,
+            value: value,
+            data: data,
+            executed: false
+        });
+
+        // update new count
+        transactionCount += 1;
+
+        // emit event
+        emit Submission(transactionId);
+
+        // transactionId = addTransaction(destination, value, data);
         confirmTransaction(transactionId);
     }
 
@@ -160,7 +138,18 @@ contract MultiSigWallet is IWallet {
         isOwnerMod(msg.sender)
         isExecutedMod(transactionId)
     {
-        if (isConfirmed(transactionId)) {
+        uint256 count = 0;
+        bool quorumReached;
+
+        // iterate over the array of owners
+        for (uint256 i = 0; i < owners.length; i++) {
+            // if owner has confirmed the transaction
+            if (confirmations[transactionId][owners[i]]) count += 1;
+            // if count reached the quorum specification then return true
+            if (count >= quorum) quorumReached = true;
+        }
+
+        if (quorumReached) {
             // extrapolate struct to a variable
             Transaction storage txn = transactions[transactionId];
             // update variable executed state
@@ -192,152 +181,6 @@ contract MultiSigWallet is IWallet {
     {
         confirmations[transactionId][msg.sender] = false;
         emit Revocation(msg.sender, transactionId);
-    }
-
-    /**
-     * @dev Allows admin to add new owner to the wallet
-     * @param owner Address of the new owner
-     * TODO: Add quorum check before initiating this function
-     */
-    function addOwner(address owner)
-        public
-        isOwnerMod(msg.sender)
-        notNull(owner)
-        notOwnerExistsMod(owner)
-    {
-        // add owner
-        isOwner[owner] = true;
-        owners.push(owner);
-
-        // emit event
-        emit OwnerAddition(owner);
-
-        // update quorum
-        updateQuorum(owners);
-    }
-
-    /**
-     * @dev Allows owners to remove owner from the wallet
-     * @param owner Address of the new owner
-     * TODO: Add quorum check before initiating this function
-     */
-    function removeOwner(address owner)
-        public
-        isOwnerMod(msg.sender)
-        notNull(owner)
-        ownerExistsMod(owner)
-    {
-        // remove owner
-        isOwner[owner] = false;
-
-        // iterate over owners and remove the current owner
-        for (uint256 i = 0; i < owners.length - 1; i++)
-            if (owners[i] == owner) {
-                owners[i] = owners[owners.length - 1];
-                break;
-            }
-        owners.pop();
-
-        // update quorum
-        updateQuorum(owners);
-    }
-
-    /**
-     * @dev Allows admin to transfer owner from one wallet to  another
-     * @param _from Address of the old owner
-     * @param _to Address of the new owner
-     * TODO: Add quorum check before initiating this function
-     */
-    function transferOwner(address _from, address _to)
-        public
-        isOwnerMod(msg.sender)
-        notNull(_from)
-        notNull(_to)
-        ownerExistsMod(_from)
-        notOwnerExistsMod(_to)
-    {
-        // iterate over owners
-        for (uint256 i = 0; i < owners.length; i++)
-            // if the curernt owner
-            if (owners[i] == _from) {
-                // replace with new owner address
-                owners[i] = _to;
-                break;
-            }
-
-        // reset owner addresses
-        isOwner[_from] = false;
-        isOwner[_to] = true;
-
-        // emit events
-        emit OwnerRemoval(_from);
-        emit OwnerAddition(_to);
-    }
-
-    /**
-     * Internal Functions
-     */
-
-    /**
-     * @dev Adds a new transaction to the transaction mapping, if transaction does not exist yet.
-     * @param destination Transaction target address.
-     * @param value Transaction ether value.
-     * @param data Transaction data payload.
-     * @return transactionId Transaction ID.
-     */
-    function addTransaction(
-        address destination,
-        uint256 value,
-        bytes memory data
-    ) internal notNull(destination) returns (uint256 transactionId) {
-        // assign ID to count
-        transactionId = transactionCount;
-
-        // update transactions mapping with the transaction struct
-        transactions[transactionId] = Transaction({
-            destination: destination,
-            value: value,
-            data: data,
-            executed: false
-        });
-
-        // update new count
-        transactionCount += 1;
-
-        // emit event
-        emit Submission(transactionId);
-    }
-
-    /**
-     * @dev Returns the confirmation status of a transaction.
-     * @param transactionId Transaction ID.
-     * @return _isConfirmed Confirmation status.
-     */
-    function isConfirmed(uint256 transactionId)
-        internal
-        view
-        returns (bool _isConfirmed)
-    {
-        uint256 count = 0;
-
-        // iterate over the array of owners
-        for (uint256 i = 0; i < owners.length; i++) {
-            // if owner has confirmed the transaction
-            if (confirmations[transactionId][owners[i]]) count += 1;
-            // if count reached the quorum specification then return true
-            if (count >= quorum) return true;
-        }
-    }
-
-    /**
-     * @dev Updates the new quorum value
-     * @param _owners List of address of the owners
-     */
-    function updateQuorum(address[] memory _owners) internal {
-        uint256 num = SafeMath.mul(_owners.length, 60);
-        quorum = SafeMath.div(num, 100);
-
-        emit QuorumUpdate(quorum);
     }
 
     /**

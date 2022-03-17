@@ -10,10 +10,11 @@ const multiSigWallet = artifacts.require("MultiSigWallet.sol");
 contract("AccessControlWallet", function (accounts) {
     let wallet;
     beforeEach(async () => {
-        wallet = await multiSigWallet.new([accounts[0],
+        accs = [accounts[0],
         accounts[1],
         accounts[2],
-        accounts[3],]);
+        accounts[3],];
+        wallet = await multiSigWallet.new(accs);
 
         await web3.eth.sendTransaction({
             from: accounts[0],
@@ -21,7 +22,7 @@ contract("AccessControlWallet", function (accounts) {
             value: 1000,
         });
 
-        accessControl = await accessControlWallet.new(wallet.address)
+        accessControl = await accessControlWallet.new(wallet.address, accs)
     });
 
     it("should add owners to wallet", async () => {
@@ -45,13 +46,13 @@ contract("AccessControlWallet", function (accounts) {
     });
 
     it("should remove owners from wallet", async () => {
-        await accessControl.addOwner(accounts[1], {
+        await accessControl.addOwner(accounts[7], {
             from: accounts[0],
         });
 
         let owners_initial = accessControl.getOwners();
 
-        await accessControl.removeOwner(accounts[1], {
+        await accessControl.removeOwner(accounts[7], {
             from: accounts[0],
         });
 
@@ -73,9 +74,9 @@ contract("AccessControlWallet", function (accounts) {
     });
 
     it("should transfer admin role to another account", async () => {
-        await accessControl.addOwner(accounts[1], {
-            from: accounts[0],
-        });
+        // await accessControl.addOwner(accounts[1], {
+        //     from: accounts[0],
+        // });
 
         await accessControl.renounceAdmin(accounts[1]);
         let final_admin = await accessControl.getAdmin();
@@ -84,9 +85,9 @@ contract("AccessControlWallet", function (accounts) {
     });
 
     it("should swap addresses for wallet owners", async () => {
-        await accessControl.addOwner(accounts[1], {
-            from: accounts[0],
-        });
+        // await accessControl.addOwner(accounts[1], {
+        //     from: accounts[0],
+        // });
 
         let transfer = await accessControl.transferOwner(accounts[1], accounts[5]);
 
