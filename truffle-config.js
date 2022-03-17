@@ -14,11 +14,6 @@ module.exports = {
         return new HDWalletProvider(process.env.MNEMONIC, `wss://ropsten.infura.io/ws/v3/${process.env.API_KEY}`)
       },
       network_id: 3,
-      gas: 0x31c02f,
-      gasPrice: 100000000,
-      confirmations: 2,    // # of confs to wait between deployments. (default: 0)
-      timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
-      skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
     },
   },
 

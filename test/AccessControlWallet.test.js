@@ -74,10 +74,6 @@ contract("AccessControlWallet", function (accounts) {
     });
 
     it("should transfer admin role to another account", async () => {
-        // await accessControl.addOwner(accounts[1], {
-        //     from: accounts[0],
-        // });
-
         await accessControl.renounceAdmin(accounts[1]);
         let final_admin = await accessControl.getAdmin();
 
@@ -85,10 +81,6 @@ contract("AccessControlWallet", function (accounts) {
     });
 
     it("should swap addresses for wallet owners", async () => {
-        // await accessControl.addOwner(accounts[1], {
-        //     from: accounts[0],
-        // });
-
         let transfer = await accessControl.transferOwner(accounts[1], accounts[5]);
 
         truffleAssert.eventEmitted(transfer, 'OwnerAddition', (e) => {
